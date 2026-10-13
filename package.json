@@ -16,6 +16,7 @@
     "db:types": "supabase gen types typescript --local > src/types/database.ts",
     "clinic:create": "tsx scripts/create-clinic.ts",
     "plan:set": "tsx scripts/set-plan.ts",
+    "flag:set": "tsx scripts/set-flag.ts",
     "clinic:set-whatsapp": "tsx scripts/set-whatsapp.ts",
     "stripe:check": "tsx --conditions=react-server scripts/check-stripe-prices.ts"
   },

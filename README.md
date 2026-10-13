@@ -121,6 +121,7 @@ Otros scripts:
 | `npm run eval:bot`      | Eval del bot con el modelo real (cuesta dinero; pide confirmación).          |
 | `npm run clinic:create` | Alta de un consultorio (ver abajo).                                         |
 | `npm run plan:set`      | Cambia el plan o el complemento de bot de una cuenta (ver «Planes y topes»). |
+| `npm run flag:set`      | Enciende o apaga un feature flag, global o por cuenta (ver «Feature flags»). |
 | `npm run clinic:set-whatsapp` | Asigna, cambia o quita el número de WhatsApp de un consultorio (`--clinic <slug> [--whatsapp-from +52… \| --remove]`). |
 | `npm run db:types`      | Regenera `src/types/database.ts` desde la base local (requiere Supabase corriendo). |
 
@@ -220,6 +221,17 @@ npm run plan:set -- --clinic basico                          # solo muestra plan
 npm run plan:set -- --clinic basico --plan pro               # sube a Pro
 npm run plan:set -- --clinic basico --plan basic --bot-addon on
 npm run plan:set -- --account <account_id> --plan plus
+```
+
+**Feature flags** (tabla `feature_flags`, helper `isEnabled(flag, accountId)` en
+`src/lib/flags.ts`). Toda función nueva se despliega apagada; se enciende por cuenta (o
+global) sin redeploy. La excepción de la cuenta gana sobre el valor global:
+
+```bash
+npm run flag:set -- --flag pdf_documents                          # muestra los valores
+npm run flag:set -- --flag pdf_documents --clinic sonrisas --on   # cuenta piloto
+npm run flag:set -- --flag pdf_documents --on                     # global
+npm run flag:set -- --flag pdf_documents --clinic sonrisas --clear
 ```
 
 **Probarlo en local** (`npx supabase start && npx supabase db reset`, luego `npm run dev`;
@@ -506,6 +518,7 @@ dispositivo**). La sesión queda guardada localmente.
 ├─ scripts/
 │  ├─ create-clinic.ts         # alta de consultorios y cuentas (service role)
 │  ├─ set-plan.ts              # cambia plan y complemento de bot (npm run plan:set)
+│  ├─ set-flag.ts              # feature flags globales o por cuenta (npm run flag:set)
 │  ├─ check-stripe-prices.ts   # verifica los precios de Stripe (npm run stripe:check)
 │  ├─ bot-chat.ts              # simulador de chat en la terminal (npm run bot:chat)
 │  ├─ eval-bot.ts, eval/       # eval del bot con el modelo real (npm run eval:bot)
