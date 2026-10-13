@@ -10,6 +10,7 @@ import {
   ExternalLinkIcon,
   PauseIcon,
   PlayIcon,
+  RotateCwIcon,
   SendIcon,
   UserIcon,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ import {
   getConversationById,
   listMessages,
   markRead,
+  retryFailedMessage,
   sendStaffMessage,
   setBotPaused,
 } from '@/lib/db/conversations';
@@ -207,7 +209,7 @@ export function ConversationThread({
         ) : (
           <ol className="grid gap-3" aria-label="Mensajes" aria-live="polite" aria-relevant="additions">
             {messages.map((m) => (
-              <MessageBubble key={m.id} message={m} />
+              <MessageBubble key={m.id} message={m} readOnly={readOnly} onRetried={refetch} />
             ))}
           </ol>
         )}
@@ -225,7 +227,15 @@ export function ConversationThread({
 
 // ---------------------------------------------------------------------------
 
-function MessageBubble({ message }: { message: MessageWithStaff }) {
+function MessageBubble({
+  message,
+  readOnly,
+  onRetried,
+}: {
+  message: MessageWithStaff;
+  readOnly: boolean;
+  onRetried: () => Promise<void>;
+}) {
   const fromPatient = message.sender === 'patient';
   const fromBot = message.sender === 'bot';
   const author = fromPatient
@@ -271,8 +281,60 @@ function MessageBubble({ message }: { message: MessageWithStaff }) {
             {describeMessageError(message.error_code) ?? 'No se pudo enviar el mensaje'}
           </p>
         )}
+        {message.direction === 'out' && message.status === 'failed' && (
+          <RetryButton messageId={message.id} readOnly={readOnly} onRetried={onRetried} />
+        )}
       </div>
     </li>
+  );
+}
+
+// Reenvía un mensaje saliente que quedó 'failed'. El resultado (enviado o
+// nuevo fallo con su código) llega al hilo con la recarga y por Realtime.
+function RetryButton({
+  messageId,
+  readOnly,
+  onRetried,
+}: {
+  messageId: string;
+  readOnly: boolean;
+  onRetried: () => Promise<void>;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  function retry() {
+    startTransition(async () => {
+      let result: Awaited<ReturnType<typeof retryFailedMessage>>;
+      try {
+        result = await retryFailedMessage(messageId);
+      } catch {
+        result = { ok: false, error: 'No se pudo reintentar el envío. Intenta de nuevo.' };
+      }
+      await onRetried();
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Mensaje reenviado');
+    });
+  }
+
+  return (
+    <div className="mt-1 flex justify-end">
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        onClick={retry}
+        disabled={pending || readOnly}
+        title={readOnly ? READ_ONLY_HINT : 'Volver a enviar este mensaje'}
+        aria-busy={pending || undefined}
+        className="text-foreground"
+      >
+        <RotateCwIcon aria-hidden className={cn(pending && 'animate-spin')} />
+        {pending ? 'Reintentando…' : 'Reintentar'}
+      </Button>
+    </div>
   );
 }
 
