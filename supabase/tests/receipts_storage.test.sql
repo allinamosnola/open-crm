@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(17);
+select plan(18);
 
 select results_eq(
   $$select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'receipts'$$,
@@ -58,7 +58,13 @@ select set_config('request.jwt.claims',
 select is((select count(*)::int from storage.objects where bucket_id = 'receipts'), 0,
   'B no ve los documentos de A');
 update storage.objects set metadata = '{"hackeado": true}' where bucket_id = 'receipts';
-delete from storage.objects where bucket_id = 'receipts';
+-- Storage bloquea cualquier DELETE directo con un trigger; lo que se comprueba es que
+-- no exista ninguna política de borrado para este bucket.
+select is(
+  (select count(*)::int from pg_policies
+    where schemaname = 'storage' and tablename = 'objects' and cmd in ('DELETE', 'ALL')
+      and (qual ilike '%receipts%' or with_check ilike '%receipts%')),
+  0, 'no hay políticas de borrado sobre receipts');
 select lives_ok(
   $$insert into storage.objects (bucket_id, name)
     values ('receipts', 'f0000000-0000-0000-0000-00000000000b/payments/pago-b.pdf')$$,
