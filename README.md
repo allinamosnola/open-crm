@@ -586,6 +586,11 @@ conversación. Los de Stripe (`tests/stripe/`) cubren el webhook con firma real 
 idempotencia, el mapeo de ítems y estados, y `changePlan`. Twilio, Anthropic (fetch simulado),
 Resend, Stripe y la base de datos van mockeados: no se hace ninguna llamada de red.
 
+vitest tiene dos proyectos: `server` (los anteriores, entorno Node) y `components`
+(`tests/components/*.test.tsx`, Testing Library + jsdom) para los formularios del panel y la
+landing: validación, errores del servidor, estados pendientes y modo solo lectura, con las
+server actions y Supabase mockeados. Uno solo: `npx vitest run --project components`.
+
 Pruebas SQL (pgTAP) contra la base local, en `supabase/tests/` (requieren
 `npx supabase start` y la seed de `npx supabase db reset`; corren en una
 transacción y no dejan cambios):

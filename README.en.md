@@ -25,7 +25,7 @@ The full documentation is in Spanish in [README.md](README.md). This page is a s
 ```bash
 npm ci
 npm run lint && npx tsc --noEmit
-npm test                      # vitest (server, bot, Stripe, WhatsApp)
+npm test                      # vitest: server project (bot, Stripe, WhatsApp) + components project (jsdom)
 npx supabase start && npx supabase test db   # pgTAP (RLS, plan limits)
 ```
 

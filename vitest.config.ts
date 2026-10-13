@@ -2,8 +2,11 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vitest/config';
 
-// Tests de la lógica del servidor (webhook de WhatsApp). Twilio (envío), Claude
-// y la base de datos van mockeados: no se hace ninguna llamada de red.
+// Dos proyectos:
+// - server: lógica del servidor (webhooks, bot, Stripe, panel). Twilio, Claude y la
+//   base de datos van mockeados: no se hace ninguna llamada de red.
+// - components: componentes de React con Testing Library y jsdom; las server
+//   actions y el cliente de Supabase van mockeados en cada test.
 export default defineConfig({
   resolve: {
     alias: {
@@ -13,7 +16,25 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'server',
+          environment: 'node',
+          include: ['tests/**/*.test.ts'],
+          exclude: ['tests/components/**'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'components',
+          environment: 'jsdom',
+          include: ['tests/components/**/*.test.tsx'],
+          setupFiles: ['tests/components/setup.ts'],
+        },
+      },
+    ],
   },
 });
