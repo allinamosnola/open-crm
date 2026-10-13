@@ -33,3 +33,9 @@ supabase/snippets/
 
 # Wechaty/WhatsApp session (never commit)
 *.memory-card.json
+
+# playwright (E2E)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

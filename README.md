@@ -591,6 +591,22 @@ vitest tiene dos proyectos: `server` (los anteriores, entorno Node) y `component
 landing: validación, errores del servidor, estados pendientes y modo solo lectura, con las
 server actions y Supabase mockeados. Uno solo: `npx vitest run --project components`.
 
+Pruebas de punta a punta (Playwright, carpeta `e2e/`) contra la app compilada y Supabase local
+con la seed. `playwright.config.ts` compila y arranca la app en el puerto 3100 y lee las llaves
+de `npx supabase status`; el servidor de pruebas no recibe llaves de Stripe, Twilio REST,
+Anthropic ni Resend, así que no sale nada a internet:
+
+```bash
+npx supabase start && npx supabase db reset   # base con la seed
+npx playwright install chromium               # una sola vez
+npm run e2e
+```
+
+Cubren login y aislamiento entre consultorios, alta de paciente y cita desde la agenda, la
+bandeja con el webhook de Twilio simulado (firma válida, firma inválida, reintento con el mismo
+`MessageSid`), el bloqueo de la bandeja en el plan Básico y el checkout de la landing hasta donde
+llega sin Stripe (error recuperable, página de gracias, webhook sin firma).
+
 Pruebas SQL (pgTAP) contra la base local, en `supabase/tests/` (requieren
 `npx supabase start` y la seed de `npx supabase db reset`; corren en una
 transacción y no dejan cambios):

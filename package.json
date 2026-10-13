@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "e2e": "playwright test",
     "bot:dev": "tsx --conditions=react-server scripts/wechaty-dev.ts",
     "bot:chat": "tsx --conditions=react-server scripts/bot-chat.ts",
     "eval:bot": "tsx scripts/eval-bot.ts",
@@ -46,6 +47,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",

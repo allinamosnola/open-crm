@@ -27,7 +27,14 @@ npm ci
 npm run lint && npx tsc --noEmit
 npm test                      # vitest: server project (bot, Stripe, WhatsApp) + components project (jsdom)
 npx supabase start && npx supabase test db   # pgTAP (RLS, plan limits)
+npx playwright install chromium && npm run e2e   # Playwright E2E against the seeded local DB
 ```
+
+E2E flows: sign-in and tenant isolation, creating a patient and an appointment, the inbox fed
+by a simulated Twilio webhook with a valid signature, the Basic plan lock and the landing
+checkout up to the point that needs Stripe. The test server gets no Stripe, Twilio REST,
+Anthropic or Resend credentials, so nothing leaves the machine. CI runs lint, typecheck,
+vitest, build, pgTAP and E2E (traces uploaded as artifacts) on every PR.
 
 ## Roadmap
 

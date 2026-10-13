@@ -76,6 +76,49 @@ jobs:
         if: always()
         run: npx supabase stop --no-backup
 
+  e2e:
+    name: E2E (Playwright on local Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Start Supabase (migrations + seed)
+        run: >-
+          npx supabase start
+          -x studio,imgproxy,logflare,vector,edge-runtime,storage-api,mailpit,supavisor
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts builds and starts the app (next build + next start)
+      # and reads the local Supabase keys from `supabase status`. No Stripe,
+      # Twilio REST, Anthropic or Resend credentials are provided.
+      - name: Run E2E tests
+        run: npm run e2e
+
+      - name: Upload Playwright report and traces
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Stop Supabase
+        if: always()
+        run: npx supabase stop --no-backup
+
   audit:
     name: npm audit (informational)
     runs-on: ubuntu-latest
