@@ -20,6 +20,60 @@ The full documentation is in Spanish in [README.md](README.md). This page is a s
   offered slots) are enforced in code, not in the prompt. `npm run eval:bot` runs an eval against the real model.
 - **Observability:** Sentry with PII scrubbing.
 
+## Architecture
+
+```mermaid
+flowchart LR
+  Staff["Clinic staff<br/>(browser)"] -->|"session cookie"| Panel
+  Patient["Patient<br/>(WhatsApp)"] <-->|messages| Twilio
+  Buyer["Prospect<br/>(landing)"] -->|Checkout| Stripe
+
+  subgraph Vercel["Next.js on Vercel"]
+    Panel["Panel + landing<br/>App Router, server actions"]
+    WA["POST /api/whatsapp<br/>signature check, idempotent"]
+    SW["POST /api/stripe/webhook<br/>signature check, idempotent"]
+    Bot["Bot agent<br/>runs in after()"]
+    Panel --- Flags["Feature flags<br/>+ plan limits"]
+  end
+
+  subgraph Supabase
+    DB[("Postgres<br/>RLS by clinic_id")]
+    Auth["Auth"]
+    Store[("Storage<br/>private receipts bucket")]
+    Audit[("audit_log<br/>append-only")]
+  end
+
+  Twilio -->|webhook| WA
+  WA -->|store message| DB
+  WA --> Bot
+  Bot <-->|"tool calls, hard rules in code"| Claude["Anthropic API"]
+  Bot -->|"read/write appointments"| DB
+  Bot -->|"reply, with retries"| Twilio
+  Bot -->|"escalation email"| Resend
+
+  Stripe -->|webhook| SW
+  SW -->|"create account, clinic, owner"| DB
+  Panel -->|"RLS as the user"| DB
+  Panel --> Auth
+  Panel -->|"PDF receipts, signed URLs"| Store
+  DB -->|triggers| Audit
+
+  Panel -.->|errors| Sentry
+  WA -.->|errors| Sentry
+  SW -.->|errors| Sentry
+```
+
+Key decisions:
+
+- **Tenant isolation lives in the database.** Every business table carries `clinic_id` and is protected by
+  RLS; the service role is used only in webhooks and scripts, never in the browser.
+- **Webhooks are idempotent** (`MessageSid` for Twilio, event/session ids for Stripe), so provider retries are safe.
+- **The model proposes, code decides.** Opening hours, the 24 h cancellation policy and offered slots are validated
+  in code; the prompt is not a security boundary.
+- **Outbound calls retry only when safe** (`src/lib/retry.ts`): Twilio timeouts are not retried to avoid
+  duplicating a WhatsApp message; failed messages can be resent manually.
+- **New capabilities ship behind flags** (`feature_flags`, global or per account), e.g. PDF documents.
+
 ## Run the tests
 
 ```bash
