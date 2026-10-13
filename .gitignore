@@ -1,0 +1,35 @@
+# dependencias
+node_modules/
+
+# variables de entorno
+.env
+.env*.local
+
+# logs
+*.log
+
+# sesión de WhatsApp (Wechaty / whatsapp-web.js)
+.wwebjs_auth/
+.wwebjs_cache/
+dental-crm-bot.memory-card.json
+
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+
+# supabase CLI
+supabase/.temp/
+supabase/.branches/
+# consultas guardadas del SQL Editor de Studio (local)
+supabase/snippets/
+
+# misc
+.DS_Store
+*.pem
+
+# Wechaty/WhatsApp session (never commit)
+*.memory-card.json

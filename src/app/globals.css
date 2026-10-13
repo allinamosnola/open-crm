@@ -1,0 +1,211 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-section-agenda: var(--section-agenda);
+  --color-section-agenda-soft: var(--section-agenda-soft);
+  --color-section-pacientes: var(--section-pacientes);
+  --color-section-pacientes-soft: var(--section-pacientes-soft);
+  --color-section-conversaciones: var(--section-conversaciones);
+  --color-section-conversaciones-soft: var(--section-conversaciones-soft);
+  --color-section-config: var(--section-config);
+  --color-section-config-soft: var(--section-config-soft);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+
+/* Paleta clínica: teal como marca, fondos con leve tinte frío. Cada sección del
+   panel tiene su propio color para identificar dónde se está trabajando. */
+:root {
+  --background: oklch(0.985 0.005 200);
+  --foreground: oklch(0.22 0.03 230);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.03 230);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 230);
+  --primary: oklch(0.5 0.1 195);
+  --primary-foreground: oklch(0.99 0.005 195);
+  --secondary: oklch(0.955 0.015 200);
+  --secondary-foreground: oklch(0.3 0.05 215);
+  --muted: oklch(0.96 0.01 200);
+  --muted-foreground: oklch(0.5 0.03 225);
+  --accent: oklch(0.94 0.03 195);
+  --accent-foreground: oklch(0.3 0.06 200);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.91 0.012 205);
+  --input: oklch(0.9 0.015 205);
+  --ring: oklch(0.6 0.1 195);
+  --chart-1: oklch(0.6 0.1 195);
+  --chart-2: oklch(0.6 0.13 250);
+  --chart-3: oklch(0.6 0.15 295);
+  --chart-4: oklch(0.75 0.15 75);
+  --chart-5: oklch(0.65 0.15 155);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.97 0.012 200);
+  --sidebar-foreground: oklch(0.25 0.03 230);
+  --sidebar-primary: oklch(0.5 0.1 195);
+  --sidebar-primary-foreground: oklch(0.99 0.005 195);
+  --sidebar-accent: oklch(0.93 0.025 200);
+  --sidebar-accent-foreground: oklch(0.25 0.04 215);
+  --sidebar-border: oklch(0.9 0.015 205);
+  --sidebar-ring: oklch(0.6 0.1 195);
+  --success: oklch(0.55 0.13 155);
+  --warning: oklch(0.7 0.15 75);
+  --info: oklch(0.58 0.13 245);
+  --section-agenda: oklch(0.5 0.1 195);
+  --section-agenda-soft: oklch(0.94 0.035 195);
+  --section-pacientes: oklch(0.5 0.16 255);
+  --section-pacientes-soft: oklch(0.945 0.03 255);
+  --section-conversaciones: oklch(0.5 0.18 295);
+  --section-conversaciones-soft: oklch(0.945 0.03 295);
+  --section-config: oklch(0.52 0.12 65);
+  --section-config-soft: oklch(0.95 0.04 80);
+}
+
+.dark {
+  --background: oklch(0.17 0.02 230);
+  --foreground: oklch(0.96 0.01 200);
+  --card: oklch(0.22 0.025 230);
+  --card-foreground: oklch(0.96 0.01 200);
+  --popover: oklch(0.22 0.025 230);
+  --popover-foreground: oklch(0.96 0.01 200);
+  --primary: oklch(0.75 0.11 190);
+  --primary-foreground: oklch(0.2 0.03 220);
+  --secondary: oklch(0.28 0.025 225);
+  --secondary-foreground: oklch(0.96 0.01 200);
+  --muted: oklch(0.27 0.025 228);
+  --muted-foreground: oklch(0.72 0.03 215);
+  --accent: oklch(0.3 0.04 205);
+  --accent-foreground: oklch(0.96 0.01 200);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.65 0.1 190);
+  --chart-1: oklch(0.75 0.11 190);
+  --chart-2: oklch(0.7 0.13 250);
+  --chart-3: oklch(0.72 0.14 295);
+  --chart-4: oklch(0.82 0.14 80);
+  --chart-5: oklch(0.75 0.14 155);
+  --sidebar: oklch(0.2 0.025 232);
+  --sidebar-foreground: oklch(0.96 0.01 200);
+  --sidebar-primary: oklch(0.75 0.11 190);
+  --sidebar-primary-foreground: oklch(0.2 0.03 220);
+  --sidebar-accent: oklch(0.29 0.035 215);
+  --sidebar-accent-foreground: oklch(0.96 0.01 200);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.65 0.1 190);
+  --success: oklch(0.75 0.14 155);
+  --warning: oklch(0.82 0.14 80);
+  --info: oklch(0.75 0.12 245);
+  --section-agenda: oklch(0.78 0.11 190);
+  --section-agenda-soft: oklch(0.3 0.05 195);
+  --section-pacientes: oklch(0.76 0.12 250);
+  --section-pacientes-soft: oklch(0.3 0.06 255);
+  --section-conversaciones: oklch(0.77 0.13 295);
+  --section-conversaciones-soft: oklch(0.3 0.07 295);
+  --section-config: oklch(0.82 0.12 80);
+  --section-config-soft: oklch(0.3 0.05 70);
+}
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+/* FullCalendar (agenda): adapta sus variables al tema de shadcn/ui. */
+.agenda-calendar .fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--card);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-today-bg-color: color-mix(in oklch, var(--primary) 6%, transparent);
+  --fc-now-indicator-color: var(--destructive);
+  --fc-button-bg-color: var(--background);
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-hover-bg-color: var(--muted);
+  --fc-button-hover-border-color: var(--border);
+  --fc-button-active-bg-color: var(--primary);
+  --fc-button-active-border-color: var(--primary);
+  font-size: 0.875rem;
+}
+.agenda-calendar .fc .fc-button-primary:not(:disabled).fc-button-active {
+  color: var(--primary-foreground);
+}
+.agenda-calendar .fc .fc-toolbar-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.agenda-calendar .fc .fc-button {
+  font-size: 0.8125rem;
+  text-transform: capitalize;
+}
+.agenda-calendar .fc .fc-timegrid-slot {
+  height: 2.25rem;
+}
+.agenda-calendar .fc .fc-non-business {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--muted),
+    var(--muted) 4px,
+    color-mix(in oklch, var(--muted) 60%, transparent) 4px,
+    color-mix(in oklch, var(--muted) 60%, transparent) 8px
+  );
+  cursor: not-allowed;
+}
+.agenda-calendar .fc .fc-event {
+  cursor: pointer;
+}
