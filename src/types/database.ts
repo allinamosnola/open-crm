@@ -2,6 +2,8 @@
 // whatsapp_register_inbound sin bot_enabled, 20261001000003; whatsapp_disabled_replies y
 // whatsapp_claim_disabled_reply, 20261001000005; whatsapp_release_disabled_reply, 20261001000006;
 // Stripe: columnas de accounts, stripe_events y stripe_apply_subscription, 20261007000001).
+// Editado a mano (sin Docker para `supabase gen types`): feature_flags, feature_enabled y
+// my_feature_enabled, 20261101000001; audit_log, 20261101000003.
 // Se conserva a mano el bloque __InternalSupabase del archivo anterior y la
 // nulabilidad de max_clinics/max_doctors (account_entitlements y my_entitlements).
 // Mantener fiel a supabase/migrations/*; `npm run db:types` lo regenera.
@@ -141,6 +143,42 @@ export type Database = {
             referencedColumns: ["id", "clinic_id"]
           },
         ]
+      }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: string
+          changed_fields: string[] | null
+          clinic_id: string
+          created_at: string
+          id: number
+          record_id: string
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role: string
+          changed_fields?: string[] | null
+          clinic_id: string
+          created_at?: string
+          id?: never
+          record_id: string
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: string
+          changed_fields?: string[] | null
+          clinic_id?: string
+          created_at?: string
+          id?: never
+          record_id?: string
+          table_name?: string
+        }
+        Relationships: []
       }
       clinical_notes: {
         Row: {
@@ -317,6 +355,44 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id", "clinic_id"]
+          },
+        ]
+      }
+      feature_flags: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          enabled: boolean
+          flag: string
+          id: string
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          enabled: boolean
+          flag: string
+          id?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          flag?: string
+          id?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flags_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -799,6 +875,10 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]
       }
+      feature_enabled: {
+        Args: { p_account_id: string; p_flag: string }
+        Returns: boolean
+      }
       is_active_member: { Args: { p_clinic_id: string }; Returns: boolean }
       my_clinics: {
         Args: never
@@ -825,6 +905,7 @@ export type Database = {
           receptionists_used: number
         }[]
       }
+      my_feature_enabled: { Args: { p_flag: string }; Returns: boolean }
       normalize_phone: { Args: { p_phone: string }; Returns: string }
       staff_in_other_account: {
         Args: { p_clinic_id: string; p_user_id: string }

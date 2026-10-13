@@ -17,6 +17,7 @@
     "db:types": "supabase gen types typescript --local > src/types/database.ts",
     "clinic:create": "tsx scripts/create-clinic.ts",
     "plan:set": "tsx scripts/set-plan.ts",
+    "flag:set": "tsx scripts/set-flag.ts",
     "clinic:set-whatsapp": "tsx scripts/set-whatsapp.ts",
     "stripe:check": "tsx --conditions=react-server scripts/check-stripe-prices.ts"
   },
@@ -27,6 +28,7 @@
     "@fullcalendar/interaction": "^6.1.21",
     "@fullcalendar/react": "^6.1.21",
     "@fullcalendar/timegrid": "^6.1.21",
+    "@react-pdf/renderer": "^4.9.0",
     "@sentry/nextjs": "^11.0.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2",

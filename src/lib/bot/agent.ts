@@ -23,6 +23,7 @@ import { bookingWindow } from './slots';
 import { parseBotState, type BotState } from './state';
 import { createAgentTools, escalateConversation, type EscalationNotifier, type ToolContext } from './tools';
 import { reportError } from '@/lib/observability';
+import { createRetryingFetch, type FetchRetryOptions } from '@/lib/retry';
 
 export const DEFAULT_MODEL = 'claude-sonnet-5';
 type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
@@ -56,11 +57,24 @@ export interface BotDeps {
   onUsage?: (usage: BetaUsage) => void;
 }
 
+// Cliente de Anthropic con reintentos propios (withRetry) en cada petición HTTP:
+// 429/529/5xx y errores de red, respetando retry-after. Se desactivan los del
+// SDK para no reintentar dos veces y para registrar cada intento en Sentry.
+export function createAnthropicClient(
+  options: { apiKey?: string; fetch?: typeof fetch; retry?: Partial<FetchRetryOptions> } = {},
+): Anthropic {
+  return new Anthropic({
+    ...(options.apiKey ? { apiKey: options.apiKey } : {}),
+    maxRetries: 0,
+    fetch: createRetryingFetch({ ...options.retry, fetch: options.fetch, where: 'anthropic.messages' }),
+  });
+}
+
 // El cliente se crea al primer uso: si se creara al importar el módulo, el build
 // de Next (que evalúa la ruta del webhook) fallaría sin ANTHROPIC_API_KEY.
 let defaultClient: Anthropic | null = null;
 function getDefaultClient(): Anthropic {
-  defaultClient ??= new Anthropic();
+  defaultClient ??= createAnthropicClient();
   return defaultClient;
 }
 

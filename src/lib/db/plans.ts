@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 
+import { FLAGS, isEnabledForSession } from '@/lib/flags';
+import { createPlanBudget } from '@/lib/pdf/documents';
 import { createClient } from '@/lib/supabase/server';
 
-import { dbError, throwReadError, validationError } from './errors';
+import { dbError, PDF_DISABLED_ERROR, throwReadError, validationError } from './errors';
 import { planSchema, type PlanInput } from './schemas';
 import type { ActionResult, PlanWithItems, Treatment } from './types';
 
@@ -72,4 +74,17 @@ export async function createPlan(input: PlanInput): Promise<ActionResult<{ id: s
 
   revalidatePath(`/pacientes/${plan.patient_id}`);
   return { ok: true, data: { id: created.id } };
+}
+
+// Presupuesto del plan en PDF (items, total, pagado y saldo): lo genera, lo
+// guarda en Storage y devuelve una URL firmada de 60 s. Lo puede descargar todo
+// el personal (todos leen los planes). Detrás del feature flag pdf_documents.
+export async function getPlanBudgetUrl(planId: string): Promise<ActionResult<{ url: string }>> {
+  const supabase = await createClient();
+  if (!(await isEnabledForSession(FLAGS.pdfDocuments, supabase))) {
+    return { ok: false, error: PDF_DISABLED_ERROR };
+  }
+  const result = await createPlanBudget(supabase, planId);
+  if (!result.ok) return result;
+  return { ok: true, data: { url: result.url } };
 }
