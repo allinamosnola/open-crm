@@ -9,6 +9,7 @@ import {
   getConversationById,
   listMessages,
   markRead,
+  retryFailedMessage,
   sendStaffMessage,
   setBotPaused,
 } from '@/lib/db/conversations';
@@ -20,6 +21,7 @@ vi.mock('@/lib/db/conversations', () => ({
   listMessages: vi.fn(),
   markRead: vi.fn(),
   markResolved: vi.fn(),
+  retryFailedMessage: vi.fn(),
   sendStaffMessage: vi.fn(),
   setBotPaused: vi.fn(),
 }));
@@ -245,5 +247,134 @@ describe('ConversationThread', () => {
     );
     unmount();
     expect(removeChannel).toHaveBeenCalled();
+  });
+});
+
+describe('ConversationThread: reintentar mensajes fallidos', () => {
+  const failed = () =>
+    message({
+      id: 'm-failed',
+      body: 'Te esperamos el lunes',
+      direction: 'out',
+      sender: 'staff',
+      status: 'failed',
+      error_code: '63016',
+    });
+  const retryButton = () => screen.queryByRole('button', { name: 'Reintentar' });
+
+  beforeEach(() => {
+    vi.mocked(getConversationById).mockResolvedValue(conversation());
+    vi.mocked(listMessages).mockResolvedValue([failed()]);
+  });
+
+  it('solo los mensajes salientes con estado failed tienen el botón', () => {
+    render(
+      <ConversationThread
+        conversation={conversation()}
+        messages={[
+          message({ body: 'Entrante' }),
+          message({ body: 'Enviado', direction: 'out', sender: 'staff', status: 'sent' }),
+          message({ body: 'En cola', direction: 'out', sender: 'bot', status: 'queued' }),
+          message({ body: 'Entregado', direction: 'out', sender: 'bot', status: 'delivered' }),
+          message({ body: 'Leído', direction: 'out', sender: 'staff', status: 'read' }),
+          failed(),
+        ]}
+      />,
+    );
+
+    const buttons = screen.getAllByRole('button', { name: 'Reintentar' });
+    expect(buttons).toHaveLength(1);
+    const items = within(screen.getByRole('list', { name: 'Mensajes' })).getAllByRole('listitem');
+    expect(within(items[5]).getByRole('button', { name: 'Reintentar' })).toBe(buttons[0]);
+  });
+
+  it('sin mensajes fallidos no hay botón', () => {
+    render(
+      <ConversationThread
+        conversation={conversation()}
+        messages={[message({ body: 'Enviado', direction: 'out', sender: 'staff', status: 'sent' })]}
+      />,
+    );
+    expect(retryButton()).not.toBeInTheDocument();
+  });
+
+  it('reintenta con el id del mensaje, recarga el hilo y avisa', async () => {
+    vi.mocked(retryFailedMessage).mockResolvedValue({
+      ok: true,
+      data: { id: 'm-failed', status: 'queued' },
+    });
+    vi.mocked(listMessages).mockResolvedValue([
+      { ...failed(), status: 'queued', error_code: null },
+    ]);
+    render(<ConversationThread conversation={conversation()} messages={[failed()]} />);
+
+    await userEvent.click(retryButton()!);
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Mensaje reenviado'));
+    expect(retryFailedMessage).toHaveBeenCalledWith('m-failed');
+    expect(listMessages).toHaveBeenCalledWith(CONVERSATION_ID);
+    // El hilo recargado ya no tiene el mensaje como fallido.
+    await waitFor(() => expect(retryButton()).not.toBeInTheDocument());
+    expect(screen.getByText('Enviando')).toBeInTheDocument();
+  });
+
+  it('muestra el estado pendiente y no deja reintentar dos veces', async () => {
+    let resolve!: (value: Awaited<ReturnType<typeof retryFailedMessage>>) => void;
+    vi.mocked(retryFailedMessage).mockReturnValue(new Promise((r) => (resolve = r)));
+    render(<ConversationThread conversation={conversation()} messages={[failed()]} />);
+
+    await userEvent.click(retryButton()!);
+
+    const pending = await screen.findByRole('button', { name: 'Reintentando…' });
+    expect(pending).toBeDisabled();
+    expect(pending).toHaveAttribute('aria-busy', 'true');
+    await userEvent.click(pending);
+    expect(retryFailedMessage).toHaveBeenCalledTimes(1);
+
+    resolve({ ok: true, data: { id: 'm-failed', status: 'sent' } });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Mensaje reenviado'));
+  });
+
+  it('si el reintento falla muestra el error y deja volver a intentar', async () => {
+    vi.mocked(retryFailedMessage).mockResolvedValue({
+      ok: false,
+      error: 'Fuera de la ventana de 24 h: el paciente debe escribir primero',
+    });
+    render(<ConversationThread conversation={conversation()} messages={[failed()]} />);
+
+    await userEvent.click(retryButton()!);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Fuera de la ventana de 24 h: el paciente debe escribir primero',
+      ),
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(await screen.findByRole('button', { name: 'Reintentar' })).toBeEnabled();
+  });
+
+  it('si la acción lanza, avisa con un error genérico', async () => {
+    vi.mocked(retryFailedMessage).mockRejectedValue(new Error('network'));
+    render(<ConversationThread conversation={conversation()} messages={[failed()]} />);
+
+    await userEvent.click(retryButton()!);
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('No se pudo reintentar el envío. Intenta de nuevo.'),
+    );
+  });
+
+  it('en solo lectura el botón está deshabilitado y no llama a la acción', async () => {
+    render(
+      <ReadOnlyProvider readOnly>
+        <ConversationThread conversation={conversation()} messages={[failed()]} />
+      </ReadOnlyProvider>,
+    );
+
+    const button = retryButton()!;
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('title', READ_ONLY_HINT);
+    await userEvent.click(button);
+    expect(retryFailedMessage).not.toHaveBeenCalled();
   });
 });

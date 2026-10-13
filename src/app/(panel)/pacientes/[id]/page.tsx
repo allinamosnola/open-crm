@@ -16,15 +16,14 @@ import { CreatePaymentDialog } from '@/components/patients/create-payment-dialog
 import { CreatePlanDialog } from '@/components/patients/create-plan-dialog';
 import { PatientForm } from '@/components/patients/patient-form';
 import { PatientTabs, type PatientTab } from '@/components/patients/patient-tabs';
+import { PaymentsTable } from '@/components/patients/payments-table';
+import { PlanCard, planTotal } from '@/components/patients/plan-card';
 import {
   AppointmentStatusBadge,
-  ItemStatusBadge,
-  PlanStatusBadge,
   UnidentifiedBadge,
   WhatsAppBadge,
 } from '@/components/status-badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -49,14 +48,15 @@ import {
   type PaymentWithReceiver,
   type PlanWithItems,
 } from '@/lib/db/types';
+import { FLAGS, isEnabledForSession } from '@/lib/flags';
 import {
   ageFrom,
   APPT_SOURCE_LABEL,
   formatCurrency,
   formatDateOnly,
-  PAYMENT_METHOD_LABEL,
   patientName,
 } from '@/lib/format';
+import { createClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Paciente · CitaBot Dental' };
 
@@ -78,7 +78,7 @@ export default async function PatientPage({
   // El owner cuenta como dentista (notas clínicas y planes).
   const isDentist = actsAsDentist(staff.role);
 
-  const [appointments, plans, payments, balances, notes, treatments, conversation] = await Promise.all([
+  const [appointments, plans, payments, balances, notes, treatments, conversation, pdfEnabled] = await Promise.all([
     listPatientAppointments(id),
     listPatientPlans(id),
     listPatientPayments(id),
@@ -86,6 +86,8 @@ export default async function PatientPage({
     isDentist ? listPatientNotes(id) : Promise.resolve([]),
     isDentist ? listTreatments() : Promise.resolve([]),
     getConversation(id),
+    // Botones «Recibo» y «Presupuesto»: solo con el feature flag pdf_documents.
+    createClient().then((supabase) => isEnabledForSession(FLAGS.pdfDocuments, supabase)),
   ]);
   const messages = conversation ? await listMessages(conversation.id) : [];
   const unidentified = patient.status === 'unidentified' || !patient.full_name;
@@ -113,6 +115,7 @@ export default async function PatientPage({
       content: (
         <PlansTab
           plans={plans}
+          pdfEnabled={pdfEnabled}
           action={
             isDentist ? (
               <CreatePlanDialog patientId={id} dentistId={staff.id} treatments={treatments} />
@@ -131,6 +134,7 @@ export default async function PatientPage({
           balances={balances}
           payments={payments}
           totalBalance={totalBalance}
+          pdfEnabled={pdfEnabled}
         />
       ),
     },
@@ -306,14 +310,15 @@ function AppointmentsTab({ appointments }: { appointments: AppointmentWithRelati
   );
 }
 
-// Mismo cálculo que la vista patient_balances: los items cancelados no suman.
-function planTotal(plan: PlanWithItems) {
-  return plan.items
-    .filter((i) => i.status !== 'cancelled')
-    .reduce((sum, i) => sum + Number(i.price), 0);
-}
-
-function PlansTab({ plans, action }: { plans: PlanWithItems[]; action: React.ReactNode }) {
+function PlansTab({
+  plans,
+  action,
+  pdfEnabled,
+}: {
+  plans: PlanWithItems[];
+  action: React.ReactNode;
+  pdfEnabled: boolean;
+}) {
   const grandTotal = plans
     .filter((p) => p.status !== 'cancelled')
     .reduce((sum, p) => sum + planTotal(p), 0);
@@ -331,55 +336,7 @@ function PlansTab({ plans, action }: { plans: PlanWithItems[]; action: React.Rea
         <p className="py-8 text-center text-muted-foreground">Sin planes de tratamiento.</p>
       )}
       {plans.map((plan) => (
-        <Card key={plan.id}>
-          <CardHeader>
-            <CardTitle className="flex flex-wrap items-center gap-2">
-              {plan.title}
-              <PlanStatusBadge status={plan.status} />
-            </CardTitle>
-            <CardDescription>
-              {plan.dentist?.full_name ?? '—'} · creado <LocalDateTime value={plan.created_at} />
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tratamiento</TableHead>
-                  <TableHead>Diente</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Precio</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {plan.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.treatment?.name ?? '—'}</TableCell>
-                    <TableCell>{item.tooth ?? '—'}</TableCell>
-                    <TableCell>
-                      <ItemStatusBadge status={item.status} />
-                    </TableCell>
-                    <TableCell
-                      className={
-                        item.status === 'cancelled'
-                          ? 'text-right text-muted-foreground line-through'
-                          : 'text-right'
-                      }
-                    >
-                      {formatCurrency(item.price)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableCell colSpan={3}>Total</TableCell>
-                  <TableCell className="text-right">{formatCurrency(planTotal(plan))}</TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
-          </CardContent>
-        </Card>
+        <PlanCard key={plan.id} plan={plan} pdfEnabled={pdfEnabled} />
       ))}
     </div>
   );
@@ -391,12 +348,14 @@ function PaymentsTab({
   balances,
   payments,
   totalBalance,
+  pdfEnabled,
 }: {
   patientId: string;
   plans: PlanWithItems[];
   balances: PatientBalance[];
   payments: PaymentWithReceiver[];
   totalBalance: number;
+  pdfEnabled: boolean;
 }) {
   const planTitle = new Map(plans.map((p) => [p.id, p.title]));
   const balanceByPlan = new Map(balances.map((b) => [b.plan_id, Number(b.balance ?? 0)]));
@@ -454,46 +413,7 @@ function PaymentsTab({
       </div>
 
       <h2 className="text-base font-semibold">Pagos</h2>
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fecha</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-              <TableHead>Método</TableHead>
-              <TableHead className="hidden md:table-cell">Plan</TableHead>
-              <TableHead className="hidden lg:table-cell">Recibió</TableHead>
-              <TableHead className="hidden lg:table-cell">Notas</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {payments.length === 0 ? (
-              <EmptyRow colSpan={6}>Sin pagos registrados.</EmptyRow>
-            ) : (
-              payments.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    <LocalDateTime value={p.paid_at} />
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(p.amount)}
-                  </TableCell>
-                  <TableCell>{PAYMENT_METHOD_LABEL[p.method]}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {p.plan_id ? (planTitle.get(p.plan_id) ?? '—') : 'Sin plan'}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {p.receiver?.full_name ?? '—'}
-                  </TableCell>
-                  <TableCell className="hidden max-w-xs truncate lg:table-cell">
-                    {p.notes ?? '—'}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <PaymentsTable payments={payments} planTitle={planTitle} pdfEnabled={pdfEnabled} />
     </div>
   );
 }
