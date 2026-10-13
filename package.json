@@ -26,7 +26,7 @@
     "@fullcalendar/core": "^6.1.21",
     "@fullcalendar/daygrid": "^6.1.21",
     "@fullcalendar/interaction": "^6.1.21",
-    "@fullcalendar/react": "^6.1.21",
+    "@fullcalendar/react": "^7.1.1",
     "@fullcalendar/timegrid": "^6.1.21",
     "@react-pdf/renderer": "^4.9.0",
     "@sentry/nextjs": "^11.0.0",
