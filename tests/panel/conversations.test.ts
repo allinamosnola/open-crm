@@ -18,6 +18,9 @@ const state = vi.hoisted(() => ({
     status: 'queued',
     errorCode: null,
   })),
+  redeliverFailedMessage: vi.fn<(supabase: unknown, params: Record<string, unknown>) => Promise<unknown>>(),
+  // Mensaje que devuelve la lectura de messages (reintento manual).
+  message: null as Row | null,
 }));
 
 const CONVERSATION = {
@@ -59,6 +62,7 @@ function createServerFake() {
     private exec() {
       if (this.op === 'select') {
         state.reads.push(`${this.table}.select`);
+        if (this.table === 'messages') return { data: state.message, error: null };
         return { data: this.table === 'conversations' ? CONVERSATION : null, error: null };
       }
       state.writes.push(`${this.table}.${this.op}`);
@@ -86,15 +90,22 @@ vi.mock('@/lib/supabase/server', () => ({ createClient: async () => createServer
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({}) }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/observability', () => ({ reportError: vi.fn() }));
-vi.mock('@/lib/whatsapp/outbound', () => ({ deliverMessage: state.deliverMessage }));
+vi.mock('@/lib/whatsapp/outbound', () => ({
+  deliverMessage: state.deliverMessage,
+  redeliverFailedMessage: state.redeliverFailedMessage,
+}));
 
-const { markRead, markResolved, sendStaffMessage, setBotPaused } = await import('@/lib/db/conversations');
+const { markRead, markResolved, retryFailedMessage, sendStaffMessage, setBotPaused } = await import(
+  '@/lib/db/conversations'
+);
 
 beforeEach(() => {
   state.botEnabled = true;
   state.writes = [];
   state.reads = [];
   state.deliverMessage.mockClear();
+  state.redeliverFailedMessage.mockReset().mockResolvedValue({ sid: 'SMretry', status: 'queued', errorCode: null });
+  state.message = null;
 });
 
 describe('sendStaffMessage', () => {
@@ -142,4 +153,61 @@ describe('otras acciones de la bandeja', () => {
       expect(state.writes).toEqual(['conversations.update']);
     });
   }
+});
+
+describe('retryFailedMessage', () => {
+  const MESSAGE_ID = '00000000-0000-4000-8000-0000000000aa';
+  const failed = (extra: Row = {}) => ({
+    id: MESSAGE_ID,
+    direction: 'out',
+    status: 'failed',
+    body: 'Te esperamos mañana',
+    conversation: CONVERSATION,
+    ...extra,
+  });
+
+  it('reenvía un mensaje saliente fallido con el número del consultorio', async () => {
+    state.message = failed();
+    const result = await retryFailedMessage(MESSAGE_ID);
+    expect(result).toEqual({ ok: true, data: { id: MESSAGE_ID, status: 'queued' } });
+    expect(state.redeliverFailedMessage.mock.calls[0][1]).toEqual({
+      messageId: MESSAGE_ID,
+      from: '+14155238886',
+      to: '+5215588887777',
+      body: 'Te esperamos mañana',
+    });
+  });
+
+  it('rechaza mensajes que no fallaron o entrantes, y ids inválidos', async () => {
+    state.message = failed({ status: 'delivered' });
+    expect((await retryFailedMessage(MESSAGE_ID)).ok).toBe(false);
+    state.message = failed({ direction: 'in' });
+    expect((await retryFailedMessage(MESSAGE_ID)).ok).toBe(false);
+    state.message = null;
+    expect(await retryFailedMessage(MESSAGE_ID)).toEqual({ ok: false, error: 'El mensaje no existe' });
+    expect(await retryFailedMessage('x')).toEqual({ ok: false, error: 'Mensaje inválido' });
+    expect(state.redeliverFailedMessage).not.toHaveBeenCalled();
+  });
+
+  it('si otro reintento ya lo tomó, no reenvía dos veces', async () => {
+    state.message = failed();
+    state.redeliverFailedMessage.mockResolvedValue(null);
+    expect(await retryFailedMessage(MESSAGE_ID)).toEqual({ ok: false, error: 'El mensaje ya se está reenviando' });
+  });
+
+  it('si vuelve a fallar devuelve el error de Twilio para mostrarlo', async () => {
+    state.message = failed();
+    state.redeliverFailedMessage.mockResolvedValue({ sid: null, status: 'failed', errorCode: '63016' });
+    const result = await retryFailedMessage(MESSAGE_ID);
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toMatch(/24 h/);
+  });
+
+  it('sin bot en el plan se rechaza sin leer ni reenviar', async () => {
+    state.botEnabled = false;
+    state.message = failed();
+    expect(await retryFailedMessage(MESSAGE_ID)).toEqual({ ok: false, error: BOT_REQUIRED_TO_REPLY });
+    expect(state.reads).toEqual([]);
+    expect(state.redeliverFailedMessage).not.toHaveBeenCalled();
+  });
 });

@@ -22,6 +22,11 @@ describe('reportError', () => {
     });
   });
 
+  it('agrega tags extra (attempt de withRetry) sin pisar where', () => {
+    reportError('falló', new Error('x'), { where: 'twilio.send', tags: { attempt: '2', where: 'otro' } });
+    expect(captureException.mock.calls[0][1].tags).toEqual({ attempt: '2', where: 'twilio.send' });
+  });
+
   it('envuelve los errores planos de Supabase y conserva solo el código', () => {
     reportError('db', { code: '23505', message: 'Key (phone)=(+5215512345678) already exists' }, { where: 'w' });
     const [captured, options] = captureException.mock.calls[0];

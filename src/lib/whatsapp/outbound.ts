@@ -38,3 +38,24 @@ export async function sendBotReply(
     send,
   );
 }
+
+// Reintento manual de un mensaje saliente que quedó 'failed' (botón del panel).
+// Lo vuelve a poner en 'queued' solo si sigue 'failed': si dos personas pulsan
+// a la vez, solo una lo envía. Devuelve null si el mensaje ya no está fallido.
+export async function redeliverFailedMessage(
+  supabase: AdminClient,
+  params: { messageId: string; from: string; to: string; body: string },
+  send: Sender = sendWhatsApp,
+): Promise<SendResult | null> {
+  const { data, error } = await supabase
+    .from('messages')
+    .update({ status: 'queued', error_code: null, twilio_sid: null })
+    .eq('id', params.messageId)
+    .eq('direction', 'out')
+    .eq('status', 'failed')
+    .select('id')
+    .maybeSingle();
+  if (error) throw new Error(`No se pudo preparar el reintento: ${error.message}`);
+  if (!data) return null;
+  return deliverMessage(supabase, params, send);
+}

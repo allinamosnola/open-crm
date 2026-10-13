@@ -1,11 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { describeMessageError } from '@/lib/whatsapp/errors';
-import { deliverMessage } from '@/lib/whatsapp/outbound';
+import { deliverMessage, redeliverFailedMessage } from '@/lib/whatsapp/outbound';
 
 import { dbError, throwReadError, validationError } from './errors';
 import { BOT_REQUIRED_TO_MANAGE, BOT_REQUIRED_TO_REPLY } from './plan-limits';
@@ -282,6 +283,60 @@ export async function sendStaffMessage(
   }
 
   revalidateInbox(conversation.patient_id);
+  if (result.status === 'failed') {
+    return {
+      ok: false,
+      error: describeMessageError(result.errorCode) ?? 'No se pudo enviar el mensaje',
+    };
+  }
+  return { ok: true, data: { id: message.id, status: result.status } };
+}
+
+// Reintento manual de un mensaje saliente que quedó 'failed' (Twilio caído,
+// límite de envío, fuera de la ventana de 24 h...). La lectura pasa por la RLS
+// con la sesión (solo mensajes del consultorio propio); el reenvío y el cambio
+// de estado los hace la service role, igual que en sendStaffMessage.
+export async function retryFailedMessage(
+  messageId: string,
+): Promise<ActionResult<{ id: string; status: MessageStatus }>> {
+  if (!z.guid().safeParse(messageId).success) return { ok: false, error: 'Mensaje inválido' };
+
+  const supabase = await createClient();
+  const denied = await requireBot(supabase, BOT_REQUIRED_TO_REPLY);
+  if (denied) return denied;
+
+  const { data: message, error: readError } = await supabase
+    .from('messages')
+    .select('id, direction, status, body, conversation:conversations(patient_id, phone, clinic:clinics(whatsapp_from))')
+    .eq('id', messageId)
+    .maybeSingle();
+  if (readError) return dbError(readError);
+  if (!message || !message.conversation) return { ok: false, error: 'El mensaje no existe' };
+  if (message.direction !== 'out' || message.status !== 'failed') {
+    return { ok: false, error: 'Solo se pueden reintentar mensajes enviados que fallaron' };
+  }
+  const conversation = message.conversation;
+  const clinicNumber = conversation.clinic?.whatsapp_from;
+  if (!clinicNumber) {
+    return { ok: false, error: 'El consultorio no tiene un número de WhatsApp configurado' };
+  }
+
+  let result;
+  try {
+    result = await redeliverFailedMessage(createAdminClient(), {
+      messageId: message.id,
+      from: clinicNumber,
+      to: conversation.phone,
+      body: message.body,
+    });
+  } catch (error) {
+    reportError('Error reintentando el envío:', error, { where: 'conversations.retry' });
+    revalidateInbox(conversation.patient_id);
+    return { ok: false, error: 'No se pudo confirmar el envío del mensaje' };
+  }
+
+  revalidateInbox(conversation.patient_id);
+  if (!result) return { ok: false, error: 'El mensaje ya se está reenviando' };
   if (result.status === 'failed') {
     return {
       ok: false,

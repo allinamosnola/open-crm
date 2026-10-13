@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { AttentionCategory } from '@/lib/db/types';
 import { reportError } from '@/lib/observability';
+import { fetchWithRetry, type RetryOptions } from '@/lib/retry';
 
 // Avisos por email a la recepción con Resend (API REST, sin SDK). Requiere
 // RESEND_API_KEY y EMAIL_FROM con un dominio verificado en Resend. Si faltan,
@@ -9,6 +10,8 @@ import { reportError } from '@/lib/observability';
 // Nunca lanza: un email fallido no debe tumbar la respuesta al paciente.
 
 const RESEND_URL = 'https://api.resend.com/emails';
+// Timeout de cada intento: el aviso corre dentro del turno del bot.
+const RESEND_TIMEOUT_MS = 10_000;
 
 export const ATTENTION_CATEGORY_TEXT: Record<AttentionCategory, string> = {
   human_requested: 'El paciente pidió hablar con una persona',
@@ -55,7 +58,12 @@ export function buildEscalationEmail(params: EscalationEmail): { subject: string
   };
 }
 
-export async function sendEscalationEmail(params: EscalationEmail): Promise<EmailResult> {
+// Reintenta 429/5xx/timeouts con la misma Idempotency-Key: si Resend recibió
+// el primer intento, el reintento no duplica el correo.
+export async function sendEscalationEmail(
+  params: EscalationEmail,
+  options: { retry?: Partial<RetryOptions>; fetch?: typeof fetch } = {},
+): Promise<EmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   if (!apiKey || !from) {
@@ -65,11 +73,19 @@ export async function sendEscalationEmail(params: EscalationEmail): Promise<Emai
 
   const { subject, text } = buildEscalationEmail(params);
   try {
-    const response = await fetch(RESEND_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [params.to], subject, text }),
-    });
+    const response = await fetchWithRetry(
+      RESEND_URL,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `escalation-${params.conversationId}-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ from, to: [params.to], subject, text }),
+      },
+      { timeoutMs: RESEND_TIMEOUT_MS, ...options.retry, fetch: options.fetch, where: 'email.resend' },
+    );
     if (!response.ok) {
       reportError(
         `Resend rechazó el email de escalamiento (${response.status}):`,
@@ -80,8 +96,8 @@ export async function sendEscalationEmail(params: EscalationEmail): Promise<Emai
     }
     const body = (await response.json().catch(() => null)) as { id?: string } | null;
     return { sent: true, id: body?.id ?? null };
-  } catch (error) {
-    reportError('Error enviando el email de escalamiento:', error, { where: 'email.network' });
+  } catch {
+    // Red o timeout tras agotar los intentos (ya reportado por withRetry).
     return { sent: false, reason: 'network' };
   }
 }
