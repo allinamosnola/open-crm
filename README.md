@@ -234,6 +234,10 @@ npm run flag:set -- --flag pdf_documents --on                     # global
 npm run flag:set -- --flag pdf_documents --clinic sonrisas --clear
 ```
 
+`pdf_documents` activa el **recibo de pago** y el **presupuesto del plan** en PDF
+(`@react-pdf/renderer`), guardados en el bucket privado `receipts` de Supabase Storage bajo
+`<clinic_id>/…` y descargados con una URL firmada de 60 s (`getPaymentReceiptUrl`, `getPlanBudgetUrl`).
+
 **Probarlo en local** (`npx supabase start && npx supabase db reset`, luego `npm run dev`;
 contraseña `demo1234`):
 

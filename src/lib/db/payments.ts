@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 
+import { FLAGS, isEnabledForSession } from '@/lib/flags';
+import { createPaymentReceipt } from '@/lib/pdf/documents';
 import { createClient } from '@/lib/supabase/server';
 
-import { dbError, throwReadError, validationError } from './errors';
+import { dbError, PDF_DISABLED_ERROR, throwReadError, validationError } from './errors';
 import { paymentSchema, type PaymentInput } from './schemas';
 import type { ActionResult, PatientBalance, PaymentWithReceiver } from './types';
 
@@ -55,4 +57,17 @@ export async function createPayment(input: PaymentInput): Promise<ActionResult<{
 
   revalidatePath(`/pacientes/${payment.patient_id}`);
   return { ok: true, data: { id: data.id } };
+}
+
+// Recibo del pago en PDF: lo genera, lo guarda en Storage (bucket privado
+// receipts) y devuelve una URL firmada de 60 s para descargarlo. Detrás del
+// feature flag pdf_documents (apagado por defecto; se enciende por cuenta).
+export async function getPaymentReceiptUrl(paymentId: string): Promise<ActionResult<{ url: string }>> {
+  const supabase = await createClient();
+  if (!(await isEnabledForSession(FLAGS.pdfDocuments, supabase))) {
+    return { ok: false, error: PDF_DISABLED_ERROR };
+  }
+  const result = await createPaymentReceipt(supabase, paymentId);
+  if (!result.ok) return result;
+  return { ok: true, data: { url: result.url } };
 }

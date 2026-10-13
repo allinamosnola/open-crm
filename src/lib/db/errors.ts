@@ -8,6 +8,9 @@ import { reportError } from '@/lib/observability';
 
 export const OVERLAP_MESSAGE = 'El dentista ya tiene una cita en ese horario';
 
+// Documentos en PDF con el feature flag pdf_documents apagado para la cuenta.
+export const PDF_DISABLED_ERROR = 'La descarga de documentos en PDF no está disponible para tu cuenta';
+
 // Traduce errores de Postgres/PostgREST a mensajes en español para la UI.
 export function dbError(error: PostgrestError): { ok: false; error: string } {
   switch (error.code) {
