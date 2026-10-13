@@ -49,6 +49,9 @@ export type TreatmentPlanItem = Tables<'treatment_plan_items'>;
 export type Appointment = Tables<'appointments'>;
 export type Payment = Tables<'payments'>;
 export type ClinicalNote = Tables<'clinical_notes'>;
+// Bitácora de auditoría (solo la lee el owner; la llenan triggers).
+export type AuditLogEntry = Tables<'audit_log'>;
+export type AuditedTable = 'patients' | 'clinical_notes' | 'payments' | 'staff';
 export type PatientBalance = Tables<'patient_balances'>;
 export type Conversation = Tables<'conversations'>;
 export type Message = Tables<'messages'>;

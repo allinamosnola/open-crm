@@ -3,7 +3,7 @@
 // whatsapp_claim_disabled_reply, 20261001000005; whatsapp_release_disabled_reply, 20261001000006;
 // Stripe: columnas de accounts, stripe_events y stripe_apply_subscription, 20261007000001).
 // Editado a mano (sin Docker para `supabase gen types`): feature_flags, feature_enabled y
-// my_feature_enabled, 20261101000001.
+// my_feature_enabled, 20261101000001; audit_log, 20261101000003.
 // Se conserva a mano el bloque __InternalSupabase del archivo anterior y la
 // nulabilidad de max_clinics/max_doctors (account_entitlements y my_entitlements).
 // Mantener fiel a supabase/migrations/*; `npm run db:types` lo regenera.
@@ -143,6 +143,42 @@ export type Database = {
             referencedColumns: ["id", "clinic_id"]
           },
         ]
+      }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: string
+          changed_fields: string[] | null
+          clinic_id: string
+          created_at: string
+          id: number
+          record_id: string
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role: string
+          changed_fields?: string[] | null
+          clinic_id: string
+          created_at?: string
+          id?: never
+          record_id: string
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: string
+          changed_fields?: string[] | null
+          clinic_id?: string
+          created_at?: string
+          id?: never
+          record_id?: string
+          table_name?: string
+        }
+        Relationships: []
       }
       clinical_notes: {
         Row: {
