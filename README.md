@@ -1,5 +1,7 @@
 # CitaBot Dental
 
+[![CI](https://github.com/allinamosnola/open-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/allinamosnola/open-crm/actions/workflows/ci.yml)
+
 > English summary: [README.en.md](README.en.md)
 
 SaaS para consultorios dentales: panel web (Next.js + Supabase) para agenda,

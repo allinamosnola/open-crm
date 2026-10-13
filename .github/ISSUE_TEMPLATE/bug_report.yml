@@ -1,0 +1,53 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps, starting from a known state (seed user, clinic, plan).
+      placeholder: |
+        1. Sign in as recepcion@demo.local
+        2. Go to /agenda
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error messages, Sentry links or logs (never patient data or secrets).
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Panel (agenda, patients, settings)
+        - WhatsApp / bot
+        - Billing (Stripe)
+        - Database / RLS
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: production / preview URL / local; browser and version
+  - type: textarea
+    id: regression-test
+    attributes:
+      label: Regression test
+      description: Where the test that reproduces this bug should live (vitest, component, pgTAP or Playwright) and what it asserts.
+      placeholder: tests/whatsapp/... asserts that ...
+    validations:
+      required: false

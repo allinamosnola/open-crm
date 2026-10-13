@@ -1,5 +1,7 @@
 # CitaBot Dental (open-crm)
 
+[![CI](https://github.com/allinamosnola/open-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/allinamosnola/open-crm/actions/workflows/ci.yml)
+
 Multi-clinic SaaS for dental practices: a web panel (Next.js + Supabase) for scheduling, patients,
 treatment plans, payments and WhatsApp conversations, plus a Claude-powered bot that books, cancels
 and reschedules appointments and hands anything it cannot resolve to the front desk.

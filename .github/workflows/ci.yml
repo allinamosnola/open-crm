@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Wechaty's puppet pulls in puppeteer; CI never runs the WhatsApp dev bot.
+  PUPPETEER_SKIP_DOWNLOAD: "1"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  checks:
+    name: Lint, typecheck, unit tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npx eslint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: Build
+        run: npx next build
+        env:
+          # Placeholder values: the build only needs them to be present.
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy
+
+  db:
+    name: Database tests (pgTAP on local Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Start Supabase (migrations + seed)
+        # Only Postgres is needed for pgTAP; skip the heavier services.
+        run: >-
+          npx supabase start
+          -x studio,imgproxy,logflare,vector,edge-runtime,realtime,storage-api,mailpit,supavisor
+
+      - name: Run pgTAP tests (supabase/tests/*.test.sql)
+        run: npx supabase test db
+
+      - name: Stop Supabase
+        if: always()
+        run: npx supabase stop --no-backup
+
+  audit:
+    name: npm audit (informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Reports known vulnerabilities in production dependencies without blocking merges;
+    # Dependabot opens the upgrade PRs.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
